@@ -10,6 +10,7 @@ import * as ConfigEvent from "./observables/config-event";
 import DefaultConfig from "./constants/default-config";
 import { Auth } from "./firebase";
 import * as AnalyticsController from "./controllers/analytics-controller";
+import * as AccountButton from "./elements/account-button";
 import { debounce } from "throttle-debounce";
 
 export let localStorageConfig: MonkeyTypes.Config;
@@ -37,7 +38,12 @@ let config = {
 let configToSend = {} as MonkeyTypes.Config;
 const saveToDatabase = debounce(1000, () => {
   delete configToSend.resultFilters;
-  if (Object.keys(configToSend).length > 0) DB.saveConfig(configToSend);
+  if (Object.keys(configToSend).length > 0) {
+    AccountButton.loading(true);
+    DB.saveConfig(configToSend).then(() => {
+      AccountButton.loading(false);
+    });
+  }
   configToSend = {} as MonkeyTypes.Config;
 });
 
@@ -74,7 +80,11 @@ export async function saveFullConfigToLocalStorage(
   delete save.resultFilters;
   const stringified = JSON.stringify(save);
   window.localStorage.setItem("config", stringified);
-  if (!noDbCheck) await DB.saveConfig(save);
+  if (!noDbCheck) {
+    AccountButton.loading(true);
+    await DB.saveConfig(save);
+    AccountButton.loading(false);
+  }
   ConfigEvent.dispatch("saveToLocalStorage", stringified);
 }
 
@@ -86,11 +96,6 @@ export function setNumbers(numb: boolean, nosave?: boolean): boolean {
     numb = false;
   }
   config.numbers = numb;
-  if (!config.numbers) {
-    $("#top .config .numbersMode .textButton").removeClass("active");
-  } else {
-    $("#top .config .numbersMode .textButton").addClass("active");
-  }
   saveToLocalStorage("numbers", nosave);
   ConfigEvent.dispatch("numbers", config.numbers);
 
@@ -105,11 +110,6 @@ export function setPunctuation(punc: boolean, nosave?: boolean): boolean {
     punc = false;
   }
   config.punctuation = punc;
-  if (!config.punctuation) {
-    $("#top .config .punctuationMode .textButton").removeClass("active");
-  } else {
-    $("#top .config .punctuationMode .textButton").addClass("active");
-  }
   saveToLocalStorage("punctuation", nosave);
   ConfigEvent.dispatch("punctuation", config.punctuation);
 
@@ -166,7 +166,7 @@ export function setPlaySoundOnClick(
 ): boolean {
   if (
     !isConfigValueValid("play sound on click", val, [
-      ["off", "1", "2", "3", "4", "5", "6", "7"],
+      ["off", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"],
     ])
   ) {
     return false;
@@ -346,14 +346,14 @@ export function setPaceCaret(
 ): boolean {
   if (
     !isConfigValueValid("pace caret", val, [
-      ["custom", "off", "average", "pb", "last"],
+      ["custom", "off", "average", "pb", "last", "daily"],
     ])
   ) {
     return false;
   }
 
   if (document.readyState === "complete") {
-    if (val == "pb" && Auth.currentUser === null) {
+    if (val == "pb" && !Auth?.currentUser) {
       Notifications.add("PB pace caret is unavailable without an account", 0);
       return false;
     }
@@ -542,31 +542,22 @@ export function setQuickEnd(qe: boolean, nosave?: boolean): boolean {
   return true;
 }
 
-export function setEnableAds(
-  val: MonkeyTypes.EnableAds,
-  nosave?: boolean
-): boolean {
-  if (!isConfigValueValid("enable ads", val, [["on", "off", "max"]])) {
+export function setAds(val: MonkeyTypes.Ads, nosave?: boolean): boolean {
+  if (!isConfigValueValid("ads", val, [["off", "result", "on", "sellout"]])) {
     return false;
   }
 
-  config.enableAds = "off";
+  config.ads = val;
+  saveToLocalStorage("ads", nosave);
   if (!nosave) {
-    saveToLocalStorage("enableAds", nosave);
-    Notifications.add("Ads have been temporarily disabled", 0);
+    setTimeout(() => {
+      location.reload();
+    }, 3000);
+    Notifications.add("Ad settings changed. Refreshing...", 0);
   }
+  ConfigEvent.dispatch("ads", config.ads);
+
   return true;
-
-  // config.enableAds = val;
-  // if (!nosave) {
-  //   saveToLocalStorage("enableAds", nosave);
-  //   setTimeout(() => {
-  //     location.reload();
-  //   }, 3000);
-  //   Notifications.add("Ad settings changed. Refreshing...", 0);
-  // }
-
-  // return true;
 }
 
 export function setRepeatQuotes(
@@ -652,9 +643,14 @@ export function setPageWidth(
   $("#centerContent").removeClass("wide150");
   $("#centerContent").removeClass("wide200");
   $("#centerContent").removeClass("widemax");
+  $("#app").removeClass("wide125");
+  $("#app").removeClass("wide150");
+  $("#app").removeClass("wide200");
+  $("#app").removeClass("widemax");
 
   if (val !== "100") {
     $("#centerContent").addClass("wide" + val);
+    $("#app").addClass("wide" + val);
   }
   saveToLocalStorage("pageWidth", nosave);
   ConfigEvent.dispatch("pageWidth", config.pageWidth);
@@ -976,15 +972,8 @@ export function setTimeConfig(
 
   const newTime = isNaN(time) || time < 0 ? DefaultConfig.time : time;
 
-  $("#top .config .time .textButton").removeClass("active");
-
-  const timeCustom = ![15, 30, 60, 120].includes(newTime) ? "custom" : newTime;
-
   config.time = newTime;
 
-  $("#top .config .time .textButton[timeConfig='" + timeCustom + "']").addClass(
-    "active"
-  );
   saveToLocalStorage("time", nosave);
   ConfigEvent.dispatch("time", config.time);
 
@@ -1029,12 +1018,6 @@ export function setQuoteLength(
     }
   }
   // if (!nosave) setMode("quote", nosave);
-  $("#top .config .quoteLength .textButton").removeClass("active");
-  config.quoteLength.forEach((ql) => {
-    $(
-      "#top .config .quoteLength .textButton[quoteLength='" + ql + "']"
-    ).addClass("active");
-  });
   saveToLocalStorage("quoteLength", nosave);
   ConfigEvent.dispatch("quoteLength", config.quoteLength);
 
@@ -1050,17 +1033,8 @@ export function setWordCount(
   const newWordCount =
     wordCount < 0 || wordCount > 100000 ? DefaultConfig.words : wordCount;
 
-  $("#top .config .wordCount .textButton").removeClass("active");
-
-  const wordCustom = ![10, 25, 50, 100, 200].includes(newWordCount)
-    ? "custom"
-    : newWordCount;
-
   config.words = newWordCount;
 
-  $(
-    "#top .config .wordCount .textButton[wordCount='" + wordCustom + "']"
-  ).addClass("active");
   saveToLocalStorage("words", nosave);
   ConfigEvent.dispatch("words", config.words);
 
@@ -1331,12 +1305,12 @@ export function setRandomTheme(
   }
 
   if (val === "custom") {
-    if (Auth.currentUser === null) {
+    if (!Auth?.currentUser) {
       config.randomTheme = val;
       return false;
     }
     if (!DB.getSnapshot()) return true;
-    if (DB.getSnapshot().customThemes.length === 0) {
+    if (DB.getSnapshot()?.customThemes.length === 0) {
       Notifications.add("You need to create a custom theme first", 0);
       config.randomTheme = "off";
       return false;
@@ -1519,6 +1493,25 @@ export function setKeymapLayout(layout: string, nosave?: boolean): boolean {
   return true;
 }
 
+export function setKeymapShowTopRow(
+  show: MonkeyTypes.KeymapShowTopRow,
+  nosave?: boolean
+): boolean {
+  if (
+    !isConfigValueValid("keymapShowTopRow", show, [
+      ["always", "layout", "never"],
+    ])
+  ) {
+    return false;
+  }
+
+  config.keymapShowTopRow = show;
+  saveToLocalStorage("keymapShowTopRow", nosave);
+  ConfigEvent.dispatch("keymapShowTopRow", config.keymapShowTopRow);
+
+  return true;
+}
+
 export function setLayout(layout: string, nosave?: boolean): boolean {
   if (!isConfigValueValid("layout", layout, ["string"])) return false;
 
@@ -1539,60 +1532,44 @@ export function setLayout(layout: string, nosave?: boolean): boolean {
 //   return true;
 // }
 
-export function setFontSize(
-  fontSize: MonkeyTypes.FontSize,
-  nosave?: boolean
-): boolean {
+export function setFontSize(fontSize: number, nosave?: boolean): boolean {
   if (
-    !isConfigValueValid("font size", fontSize, [
-      ["1", "125", "15", "2", "3", "4"],
-    ])
+    typeof fontSize === "string" &&
+    ["1", "125", "15", "2", "3", "4"].includes(fontSize)
   ) {
+    if (fontSize === "125") {
+      fontSize = 1.25;
+    } else if (fontSize === "15") {
+      fontSize = 1.5;
+    } else {
+      fontSize = parseInt(fontSize);
+    }
+  }
+
+  if (!isConfigValueValid("font size", fontSize, ["number"])) {
     return false;
   }
 
-  config.fontSize = fontSize;
-  $("#words").removeClass("size125");
-  $("#caret, #paceCaret").removeClass("size125");
-  $("#words").removeClass("size15");
-  $("#caret, #paceCaret").removeClass("size15");
-  $("#words").removeClass("size2");
-  $("#caret, #paceCaret").removeClass("size2");
-  $("#words").removeClass("size3");
-  $("#caret, #paceCaret").removeClass("size3");
-  $("#words").removeClass("size35");
-  $("#caret, #paceCaret").removeClass("size35");
-  $("#words").removeClass("size4");
-  $("#caret, #paceCaret").removeClass("size4");
-
-  $("#miniTimerAndLiveWpm").removeClass("size125");
-  $("#miniTimerAndLiveWpm").removeClass("size15");
-  $("#miniTimerAndLiveWpm").removeClass("size2");
-  $("#miniTimerAndLiveWpm").removeClass("size3");
-  $("#miniTimerAndLiveWpm").removeClass("size35");
-  $("#miniTimerAndLiveWpm").removeClass("size4");
-
-  if (fontSize == "125") {
-    $("#words").addClass("size125");
-    $("#caret, #paceCaret").addClass("size125");
-    $("#miniTimerAndLiveWpm").addClass("size125");
-  } else if (fontSize == "15") {
-    $("#words").addClass("size15");
-    $("#caret, #paceCaret").addClass("size15");
-    $("#miniTimerAndLiveWpm").addClass("size15");
-  } else if (fontSize == "2") {
-    $("#words").addClass("size2");
-    $("#caret, #paceCaret").addClass("size2");
-    $("#miniTimerAndLiveWpm").addClass("size2");
-  } else if (fontSize == "3") {
-    $("#words").addClass("size3");
-    $("#caret, #paceCaret").addClass("size3");
-    $("#miniTimerAndLiveWpm").addClass("size3");
-  } else if (fontSize == "4") {
-    $("#words").addClass("size4");
-    $("#caret, #paceCaret").addClass("size4");
-    $("#miniTimerAndLiveWpm").addClass("size4");
+  if (fontSize < 0) {
+    fontSize = 1;
   }
+
+  // i dont know why the above check is not enough
+  // some people are getting font size 15 when it should be converted to 1.5
+  // after converting from the string to float system
+
+  // keeping this in for now, if you want a big font go 14.9 or something
+  if (fontSize == 15) {
+    fontSize = 1.5;
+  }
+
+  config.fontSize = fontSize;
+
+  $("#words, #caret, #paceCaret, #miniTimerAndLiveWpm").css(
+    "fontSize",
+    fontSize + "rem"
+  );
+
   saveToLocalStorage("fontSize", nosave);
   ConfigEvent.dispatch("fontSize", config.fontSize);
 
@@ -1607,7 +1584,7 @@ export function setCustomBackground(value: string, nosave?: boolean): boolean {
     (/(https|http):\/\/(www\.|).+\..+\/.+(\.png|\.gif|\.jpeg|\.jpg)/gi.test(
       value
     ) &&
-      !/[<>]/.test(value)) ||
+      !/[<> "]/.test(value)) ||
     value == ""
   ) {
     config.customBackground = value;
@@ -1769,6 +1746,7 @@ export function apply(
     setKeymapStyle(configObj.keymapStyle, true);
     setKeymapLegendStyle(configObj.keymapLegendStyle, true);
     setKeymapLayout(configObj.keymapLayout, true);
+    setKeymapShowTopRow(configObj.keymapShowTopRow, true);
     setFontFamily(configObj.fontFamily, true);
     setSmoothCaret(configObj.smoothCaret, true);
     setSmoothLineScroll(configObj.smoothLineScroll, true);
@@ -1818,120 +1796,8 @@ export function apply(
     setLazyMode(configObj.lazyMode, true);
     setShowAverage(configObj.showAverage, true);
     setTapeMode(configObj.tapeMode, true);
+    setAds(configObj.ads, true);
 
-    try {
-      setEnableAds(configObj.enableAds, true);
-
-      if (config.enableAds === "max" || config.enableAds === "on") {
-        // $("head").append(`
-        //   <script
-        //   src="https://hb.vntsm.com/v3/live/ad-manager.min.js"
-        //   type="text/javascript"
-        //   data-site-id="60b78af12119122b8958910f"
-        //   data-mode="scan"
-        //   id="adScript"
-        //   async
-        //   ></script>
-        // `);
-
-        if (config.enableAds === "max") {
-          //
-
-          $("#ad_rich_media").removeClass("hidden");
-          $("#ad_rich_media")
-            .html
-            // `<div class="vm-placement" data-id="60bf737ee04cb761c88aafb1" style="display:none"></div>`
-            ();
-        } else {
-          $("#ad_rich_media").remove();
-        }
-
-        //<div class="vm-placement" data-id="60bf73dae04cb761c88aafb5"></div>
-
-        $("#ad_footer")
-          .html
-          // `<div class="vm-placement" data-id="60bf73dae04cb761c88aafb5"></div>`
-          ();
-        $("#ad_footer").removeClass("hidden");
-
-        // $("#ad_footer2").html(`<div class="vm-placement" data-id="60bf73e9e04cb761c88aafb7"></div>`);
-        // $("#ad_footer2").removeClass("hidden");
-
-        $("#ad_about1")
-          .html
-          // `<div class="vm-placement" data-id="60bf73dae04cb761c88aafb5"></div>`
-          ();
-        $("#ad_about1").removeClass("hidden");
-
-        $("#ad_about2")
-          .html
-          // `<div class="vm-placement" data-id="60bf73dae04cb761c88aafb5"></div>`
-          ();
-        $("#ad_about2").removeClass("hidden");
-
-        $("#ad_settings0")
-          .html
-          // `<div class="vm-placement" data-id="60bf73dae04cb761c88aafb5"></div>`
-          ();
-        $("#ad_settings0").removeClass("hidden");
-
-        $("#ad_settings1")
-          .html
-          // `<div class="vm-placement" data-id="60bf73dae04cb761c88aafb5"></div>`
-          ();
-        $("#ad_settings1").removeClass("hidden");
-
-        $("#ad_settings2")
-          .html
-          // `<div class="vm-placement" data-id="60bf73dae04cb761c88aafb5"></div>`
-          ();
-        $("#ad_settings2").removeClass("hidden");
-
-        $("#ad_settings3")
-          .html
-          // `<div class="vm-placement" data-id="60bf73dae04cb761c88aafb5"></div>`
-          ();
-        $("#ad_settings3").removeClass("hidden");
-
-        $("#ad_account")
-          .html
-          // `<div class="vm-placement" data-id="60bf73dae04cb761c88aafb5"></div>`
-          ();
-        $("#ad_account").removeClass("hidden");
-        $(".footerads").removeClass("hidden");
-      } else {
-        $("#adScript").remove();
-        $(".footerads").remove();
-        $("#ad_left").remove();
-        $("#ad_right").remove();
-        $("#ad_footer").remove();
-        $("#ad_footer2").remove();
-        $("#ad_footer3").remove();
-        $("#ad_settings0").remove();
-        $("#ad_settings1").remove();
-        $("#ad_settings2").remove();
-        $("#ad_settings3").remove();
-        $("#ad_account").remove();
-        $("#ad_about1").remove();
-        $("#ad_about2").remove();
-      }
-    } catch (e) {
-      Notifications.add("Error initialising ads: " + (e as Error).message);
-      console.log("error initialising ads " + (e as Error).message);
-      $(".footerads").remove();
-      $("#ad_left").remove();
-      $("#ad_right").remove();
-      $("#ad_footer").remove();
-      $("#ad_footer2").remove();
-      $("#ad_footer3").remove();
-      $("#ad_settings0").remove();
-      $("#ad_settings1").remove();
-      $("#ad_settings2").remove();
-      $("#ad_settings3").remove();
-      $("#ad_account").remove();
-      $("#ad_about1").remove();
-      $("#ad_about2").remove();
-    }
     ConfigEvent.dispatch(
       "configApplied",
       undefined,
@@ -1967,6 +1833,8 @@ export function loadFromLocalStorage(): void {
     localStorageConfig = newConfig;
     saveFullConfigToLocalStorage(true);
     console.log("saving localStorage config");
+  } else {
+    reset();
   }
   // TestLogic.restart(false, true);
   loadDone();

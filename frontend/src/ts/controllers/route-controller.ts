@@ -6,12 +6,21 @@ import * as PageAccount from "../pages/account";
 import * as PageLogin from "../pages/login";
 import * as Page404 from "../pages/404";
 import * as PageProfile from "../pages/profile";
+import * as PageProfileSearch from "../pages/profile-search";
 import * as Leaderboards from "../elements/leaderboards";
-// import * as ActivePage from "../states/active-page";
+import * as TestUI from "../test/test-ui";
+import * as PageTransition from "../states/page-transition";
+import * as NavigateEvent from "../observables/navigate-event";
 import { Auth } from "../firebase";
 
 //source: https://www.youtube.com/watch?v=OstALBk-jTc
 // https://www.youtube.com/watch?v=OstALBk-jTc
+
+//this will be used in tribe
+interface NavigateOptions {
+  empty?: boolean;
+  data?: any;
+}
 
 function pathToRegex(path: string): RegExp {
   return new RegExp(
@@ -32,7 +41,10 @@ function getParams(match: { route: Route; result: RegExpMatchArray }): {
 
 interface Route {
   path: string;
-  load: (params: { [key: string]: string }) => void;
+  load: (
+    params: { [key: string]: string },
+    navigateOptions: NavigateOptions
+  ) => void;
 }
 
 const routes: Route[] = [
@@ -72,41 +84,63 @@ const routes: Route[] = [
   {
     path: "/login",
     load: (): void => {
+      if (!Auth) {
+        nav("/");
+        return;
+      }
       PageController.change(PageLogin.page);
     },
   },
   {
     path: "/account",
-    load: (): void => {
-      PageController.change(PageAccount.page);
+    load: (_params, options): void => {
+      if (!Auth) {
+        nav("/");
+        return;
+      }
+      PageController.change(PageAccount.page, {
+        data: options.data,
+      });
     },
   },
   {
     path: "/profile",
-    load: (): void => {
-      if (Auth.currentUser) {
-        navigate("/account");
-      } else {
-        navigate("/");
-      }
+    load: (_params): void => {
+      PageController.change(PageProfileSearch.page);
     },
   },
   {
-    path: "/profile/:uid",
-    load: (params): void => {
-      PageController.change(PageProfile.page, true, params);
+    path: "/profile/:uidOrName",
+    load: (params, options): void => {
+      PageController.change(PageProfile.page, {
+        force: true,
+        params: {
+          uidOrName: params["uidOrName"],
+        },
+        data: options.data,
+      });
     },
   },
 ];
 
-export function navigate(url = window.location.pathname): void {
+function nav(
+  url = window.location.pathname + window.location.search,
+  options = {} as NavigateOptions
+): void {
+  if (
+    TestUI.testRestarting ||
+    TestUI.resultCalculating ||
+    PageTransition.get()
+  ) {
+    return;
+  }
   url = url.replace(/\/$/, "");
   if (url === "") url = "/";
   history.pushState(null, "", url);
-  router();
+  router(options);
 }
 
-async function router(): Promise<void> {
+async function router(options = {} as NavigateOptions): Promise<void> {
   const matches = routes.map((r) => {
     return {
       route: r,
@@ -124,29 +158,31 @@ async function router(): Promise<void> {
     return;
   }
 
-  match.route.load(getParams(match));
+  match.route.load(getParams(match), options);
 }
 
-window.addEventListener("popstate", router);
+window.addEventListener("popstate", () => {
+  router();
+});
 
 document.addEventListener("DOMContentLoaded", () => {
   document.body.addEventListener("click", (e) => {
     const target = e?.target as HTMLLinkElement;
-    if (target.matches("[data-link]") && target?.href) {
+    if (target.matches("[router-link]") && target?.href) {
       e.preventDefault();
-      navigate(target.href);
+      nav(target.href);
     }
   });
 });
 
 $("#top .logo").on("click", () => {
-  navigate("/");
+  nav("/");
 });
 
-$(document).on("click", "#leaderboards .entryName", (e) => {
-  const uid = $(e.target).attr("uid");
-  if (uid) {
-    navigate(`/profile/${uid}`);
-    Leaderboards.hide();
-  }
+$("#popups").on("click", "#leaderboards a.entryName", () => {
+  Leaderboards.hide();
+});
+
+NavigateEvent.subscribe((url, options) => {
+  nav(url, options);
 });

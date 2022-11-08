@@ -58,7 +58,7 @@ export async function show(options = defaultOptions): Promise<void> {
       .css("opacity", 0)
       .removeClass("hidden")
       .animate({ opacity: 1 }, noAnim ? 0 : 100, () => {
-        $("#quoteReportPopup textarea").trigger("focus").select();
+        $("#quoteReportPopup textarea").trigger("focus").trigger("select");
       });
   }
 }
@@ -93,7 +93,7 @@ async function submitReport(): Promise<void> {
   }
 
   const quoteId = state.quoteToReport?.id.toString();
-  const quoteLanguage = Config.language;
+  const quoteLanguage = Config.language.replace(/_\d*k$/g, "");
   const reason = $("#quoteReportPopup .reason").val() as string;
   const comment = $("#quoteReportPopup .comment").val() as string;
   const captcha = captchaResponse as string;
@@ -104,6 +104,10 @@ async function submitReport(): Promise<void> {
 
   if (!reason) {
     return Notifications.add("Please select a valid report reason");
+  }
+
+  if (!comment) {
+    return Notifications.add("Please provide a comment");
   }
 
   const characterDifference = comment.length - 250;

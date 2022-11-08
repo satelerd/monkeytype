@@ -3,6 +3,9 @@ import * as ThemeColors from "./theme-colors";
 import * as SlowTimer from "../states/slow-timer";
 import * as ConfigEvent from "../observables/config-event";
 import * as Misc from "../utils/misc";
+import * as Hangul from "hangul-js";
+import * as Notifications from "../elements/notifications";
+import * as ActivePage from "../states/active-page";
 
 export function highlightKey(currentKey: string): void {
   if (Config.mode === "zen") return;
@@ -13,6 +16,9 @@ export function highlightKey(currentKey: string): void {
     }
 
     let highlightKey;
+    if (Config.language.startsWith("korean")) {
+      currentKey = Hangul.disassemble(currentKey)[0];
+    }
     if (currentKey == " ") {
       highlightKey = "#keymap .keySpace, #keymap .keySplitSpace";
     } else if (currentKey == '"') {
@@ -33,7 +39,7 @@ export function highlightKey(currentKey: string): void {
 
 export async function flashKey(key: string, correct: boolean): Promise<void> {
   if (key == undefined) return;
-
+  //console.log("key", key);
   if (key == " ") {
     key = "#keymap .keySpace, #keymap .keySplitSpace";
   } else if (key == '"') {
@@ -94,9 +100,21 @@ export function show(): void {
 export async function refresh(
   layoutName: string = Config.layout
 ): Promise<void> {
+  if (Config.keymapMode === "off") return;
+  if (ActivePage.get() !== "test") return;
   if (!layoutName) return;
   try {
-    const layouts = await Misc.getLayoutsList();
+    let layouts;
+    try {
+      layouts = await Misc.getLayoutsList();
+    } catch (e) {
+      Notifications.add(
+        Misc.createErrorMessage(e, "Failed to refresh keymap"),
+        -1
+      );
+      return;
+    }
+
     let lts = layouts[layoutName]; //layout to show
     let layoutString = layoutName;
     if (Config.keymapLayout === "overrideSync") {
@@ -112,7 +130,10 @@ export async function refresh(
       layoutString = Config.keymapLayout;
     }
 
-    const showTopRow = (lts as typeof layouts["qwerty"]).keymapShowTopRow;
+    const showTopRow =
+      Config.keymapShowTopRow === "always" ||
+      ((lts as typeof layouts["qwerty"]).keymapShowTopRow &&
+        Config.keymapShowTopRow !== "never");
 
     const isMatrix =
       Config.keymapStyle === "matrix" || Config.keymapStyle === "split_matrix";
@@ -121,7 +142,13 @@ export async function refresh(
 
     (Object.keys(lts.keys) as (keyof MonkeyTypes.Keys)[]).forEach(
       (row, index) => {
-        const rowKeys = lts.keys[row];
+        let rowKeys = lts.keys[row];
+        if (
+          row === "row1" &&
+          (isMatrix || Config.keymapStyle === "staggered")
+        ) {
+          rowKeys = rowKeys.slice(1);
+        }
         let rowElement = "";
         if (row === "row1" && !showTopRow) {
           return;
@@ -168,7 +195,17 @@ export async function refresh(
             } else if (Config.keymapLegendStyle === "uppercase") {
               keyDisplay = keyDisplay.toUpperCase();
             }
-            const keyElement = `<div class="keymapKey" data-key="${key.replace(
+            let hide = "";
+            if (
+              row === "row1" &&
+              i === 0 &&
+              !isMatrix &&
+              Config.keymapStyle !== "staggered"
+            ) {
+              hide = ` invisible`;
+            }
+
+            const keyElement = `<div class="keymapKey${hide}" data-key="${key.replace(
               '"',
               "&quot;"
             )}">
@@ -189,6 +226,14 @@ export async function refresh(
                 lts.type === "iso"
               ) {
                 if (i === 6) {
+                  splitSpacer += `<div class="keymapSplitSpacer"></div>`;
+                }
+              } else if (
+                row === "row1" &&
+                (Config.keymapStyle === "split" ||
+                  Config.keymapStyle === "alice")
+              ) {
+                if (i === 7) {
                   splitSpacer += `<div class="keymapSplitSpacer"></div>`;
                 }
               } else {
@@ -237,5 +282,12 @@ ConfigEvent.subscribe((eventKey) => {
   if (eventKey === "layout" && Config.keymapLayout === "overrideSync") {
     refresh(Config.keymapLayout);
   }
-  if (eventKey === "keymapLayout" || eventKey === "keymapStyle") refresh();
+  if (
+    eventKey === "keymapLayout" ||
+    eventKey === "keymapStyle" ||
+    eventKey === "keymapShowTopRow" ||
+    eventKey === "keymapMode"
+  ) {
+    refresh();
+  }
 });

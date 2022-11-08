@@ -8,6 +8,7 @@ import * as DB from "../db";
 import * as Notifications from "../elements/notifications";
 import * as Loader from "../elements/loader";
 import * as AnalyticsController from "../controllers/analytics-controller";
+import { debounce } from "throttle-debounce";
 
 let isPreviewingTheme = false;
 export let randomTheme: string | null = null;
@@ -74,7 +75,7 @@ function clearCustomTheme(): void {
 
 let loadStyleLoaderTimeouts: NodeJS.Timeout[] = [];
 
-async function loadStyle(name: string): Promise<void> {
+export async function loadStyle(name: string): Promise<void> {
   return new Promise((resolve) => {
     loadStyleLoaderTimeouts.push(
       setTimeout(() => {
@@ -93,6 +94,17 @@ async function loadStyle(name: string): Promise<void> {
       $("#nextTheme").attr("id", "currentTheme");
       loadStyleLoaderTimeouts.map((t) => clearTimeout(t));
       loadStyleLoaderTimeouts = [];
+      $("#keymap .keymapKey").stop(true, true).removeAttr("style");
+      resolve();
+    };
+    link.onerror = (): void => {
+      Loader.hide();
+      Notifications.add("Failed to load theme", 0);
+      $("#currentTheme").remove();
+      $("#nextTheme").attr("id", "currentTheme");
+      loadStyleLoaderTimeouts.map((t) => clearTimeout(t));
+      loadStyleLoaderTimeouts = [];
+      $("#keymap .keymapKey").stop(true, true).removeAttr("style");
       resolve();
     };
     if (name === "custom") {
@@ -172,9 +184,16 @@ export function preview(
   isCustom: boolean,
   randomTheme = false
 ): void {
-  isPreviewingTheme = true;
-  apply(themeIdentifier, isCustom, !randomTheme);
+  debouncedPreview(themeIdentifier, isCustom, randomTheme);
 }
+
+const debouncedPreview = debounce(
+  100,
+  (themeIdenfitier, isCustom, randomTheme) => {
+    isPreviewingTheme = true;
+    apply(themeIdenfitier, isCustom, !randomTheme);
+  }
+);
 
 export function set(themeIdentifier: string, isCustom: boolean): void {
   apply(themeIdentifier, isCustom);
@@ -197,8 +216,16 @@ export function clearPreview(applyTheme = true): void {
 let themesList: string[] = [];
 
 async function changeThemeList(): Promise<void> {
-  if (!DB.getSnapshot()) return;
-  const themes = await Misc.getThemesList();
+  let themes;
+  try {
+    themes = await Misc.getThemesList();
+  } catch (e) {
+    console.error(
+      Misc.createErrorMessage(e, "Failed to update random theme list")
+    );
+    return;
+  }
+
   if (Config.randomTheme === "fav" && Config.favThemes.length > 0) {
     themesList = Config.favThemes;
   } else if (Config.randomTheme === "light") {
@@ -213,8 +240,8 @@ async function changeThemeList(): Promise<void> {
     themesList = themes.map((t) => {
       return t.name;
     });
-  } else {
-    themesList = DB.getSnapshot().customThemes.map((ct) => ct._id);
+  } else if (Config.randomTheme === "custom" && DB.getSnapshot()) {
+    themesList = DB.getSnapshot()?.customThemes.map((ct) => ct._id) ?? [];
   }
   Misc.shuffle(themesList);
   randomThemeIndex = 0;
@@ -239,7 +266,7 @@ export async function randomizeTheme(): Promise<void> {
     let name = randomTheme.replace(/_/g, " ");
     if (Config.randomTheme === "custom") {
       name = (
-        DB.getSnapshot().customThemes.find((ct) => ct._id === randomTheme)
+        DB.getSnapshot()?.customThemes.find((ct) => ct._id === randomTheme)
           ?.name ?? "custom"
       ).replace(/_/g, " ");
     }
@@ -283,7 +310,9 @@ export function applyCustomBackground(): void {
   } else {
     $("#words").addClass("noErrorBorder");
     $("#resultWordsHistory").addClass("noErrorBorder");
-    $(".customBackground").html(`<img src="${Config.customBackground}" />`);
+    $(".customBackground").html(
+      `<img src="${Config.customBackground}" alt="" />`
+    );
     BackgroundFilter.apply();
     applyCustomBackgroundSize();
   }

@@ -5,7 +5,13 @@ import { verifyIdToken } from "../utils/auth";
 import { base64UrlDecode } from "../utils/misc";
 import { NextFunction, Response, Handler } from "express";
 import statuses from "../constants/monkey-status-codes";
-import { incrementAuth } from "../utils/prometheus";
+import {
+  incrementAuth,
+  recordAuthTime,
+  recordRequestCountry,
+  // recordRequestForUid,
+} from "../utils/prometheus";
+import { performance } from "perf_hooks";
 
 interface RequestAuthenticationOptions {
   isPublic?: boolean;
@@ -30,10 +36,13 @@ function authenticateRequest(authOptions = DEFAULT_OPTIONS): Handler {
     _res: Response,
     next: NextFunction
   ): Promise<void> => {
-    try {
-      const { authorization: authHeader } = req.headers;
-      let token: MonkeyTypes.DecodedToken;
+    const startTime = performance.now();
+    let token: MonkeyTypes.DecodedToken;
+    let authType = "None";
 
+    const { authorization: authHeader } = req.headers;
+
+    try {
       if (authHeader) {
         token = await authenticateWithAuthHeader(
           authHeader,
@@ -63,8 +72,32 @@ function authenticateRequest(authOptions = DEFAULT_OPTIONS): Handler {
         decodedToken: token,
       };
     } catch (error) {
+      authType = authHeader?.split(" ")[0] ?? "None";
+
+      recordAuthTime(
+        authType,
+        "failure",
+        Math.round(performance.now() - startTime),
+        req
+      );
+
       return next(error);
     }
+    recordAuthTime(
+      token.type,
+      "success",
+      Math.round(performance.now() - startTime),
+      req
+    );
+
+    const country = req.headers["cf-ipcountry"] as string;
+    if (country) {
+      recordRequestCountry(country, req as MonkeyTypes.Request);
+    }
+
+    // if (req.method !== "OPTIONS" && req?.ctx?.decodedToken?.uid) {
+    //   recordRequestForUid(req.ctx.decodedToken.uid);
+    // }
 
     next();
   };
@@ -94,16 +127,14 @@ async function authenticateWithAuthHeader(
   configuration: MonkeyTypes.Configuration,
   options: RequestAuthenticationOptions
 ): Promise<MonkeyTypes.DecodedToken> {
-  const token = authHeader.split(" ");
+  const [authScheme, token] = authHeader.split(" ");
+  const normalizedAuthScheme = authScheme.trim();
 
-  const authScheme = token[0].trim();
-  const credentials = token[1];
-
-  switch (authScheme) {
+  switch (normalizedAuthScheme) {
     case "Bearer":
-      return await authenticateWithBearerToken(credentials, options);
+      return await authenticateWithBearerToken(token, options);
     case "ApeKey":
-      return await authenticateWithApeKey(credentials, configuration, options);
+      return await authenticateWithApeKey(token, configuration, options);
   }
 
   throw new MonkeyError(
@@ -118,9 +149,9 @@ async function authenticateWithBearerToken(
   options: RequestAuthenticationOptions
 ): Promise<MonkeyTypes.DecodedToken> {
   try {
-    const decodedToken = await verifyIdToken(token);
+    const decodedToken = await verifyIdToken(token, options.requireFreshToken);
 
-    if (options.requireFreshToken === true) {
+    if (options.requireFreshToken) {
       const now = Date.now();
       const tokenIssuedAt = new Date(decodedToken.iat * 1000).getTime();
 
@@ -139,13 +170,15 @@ async function authenticateWithBearerToken(
       email: decodedToken.email ?? "",
     };
   } catch (error) {
-    if (error?.errorInfo?.code?.includes("auth/id-token-expired")) {
+    const errorCode = error?.errorInfo?.code;
+
+    if (errorCode?.includes("auth/id-token-expired")) {
       throw new MonkeyError(
         401,
         "Token expired. Please login again.",
         "authenticateWithBearerToken"
       );
-    } else if (error?.errorInfo?.code?.includes("auth/id-token-revoked")) {
+    } else if (errorCode?.includes("auth/id-token-revoked")) {
       throw new MonkeyError(
         401,
         "Token revoked. Please login again.",

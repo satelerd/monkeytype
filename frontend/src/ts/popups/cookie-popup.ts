@@ -1,5 +1,6 @@
 import { activateAnalytics } from "../controllers/analytics-controller";
 import { focusWords } from "../test/test-ui";
+import * as Notifications from "../elements/notifications";
 
 let visible = false;
 
@@ -86,6 +87,15 @@ $("#cookiePopup .acceptAll").on("click", () => {
   hide();
 });
 
+$("#cookiePopup .rejectAll").on("click", () => {
+  const accepted = {
+    security: true,
+    analytics: false,
+  };
+  setAcceptedObject(accepted);
+  hide();
+});
+
 $("#cookiePopup .acceptSelected").on("click", () => {
   const analytics = $("#cookiePopup .cookie.analytics input").prop("checked");
   const accepted = {
@@ -107,5 +117,20 @@ $("#cookiePopup .openSettings").on("click", () => {
 $(document).on("keypress", (e) => {
   if (visible) {
     e.preventDefault();
+  }
+});
+
+$("#cookiePopup .cookie.ads .text-button").on("click", () => {
+  try {
+    //@ts-ignore
+    window.__tcfapi("displayConsentUi", 2, function () {
+      //
+    });
+  } catch (e) {
+    console.error("Failed to open ad consent UI");
+    Notifications.add(
+      "Failed to open Ad consent popup. Do you have an ad or cookie popup blocker enabled?",
+      -1
+    );
   }
 });

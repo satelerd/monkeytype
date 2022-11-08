@@ -19,12 +19,16 @@
   </div>
   <div class="leftright">
     <div class="left">
-      <a class="textButton" id="contactPopupButton">
+      <div tabindex="0" class="textButton" id="contactPopupButton">
         <i class="fas fa-fw fa-envelope"></i>
         <div class="text">Contact</div>
-      </a>
+      </div>
+      <div tabindex="0" id="supportMeButton" class="textButton">
+        <i class="fas fa-fw fa-donate"></i>
+        <div class="text">Support</div>
+      </div>
       <a
-        href="https://github.com/Miodec/monkeytype"
+        href="https://github.com/monkeytypegame/monkeytype"
         class="textButton"
         target="_blank"
         rel="noreferrer"
@@ -63,24 +67,23 @@
         <i class="fas fa-fw fa-lock"></i>
         <div class="text">Privacy</div>
       </a>
-      <a id="supportMeButton" class="textButton">
-        <i class="fas fa-fw fa-donate"></i>
-        <div class="text">Donate</div>
-      </a>
     </div>
     <div class="right">
-      <a
+      <div
         class="current-theme textButton"
         aria-label="Shift-click to toggle custom theme"
         data-balloon-pos="left"
       >
         <i class="fas fa-fw fa-palette"></i>
         <div class="text">serika dark</div>
-      </a>
-      <a class="version textButton">
-        <i class="fas fa-fw fa-code-branch"></i>
-        <div class="text">version</div>
-      </a>
+      </div>
+      <div id="versionGroup" class="hidden">
+        <div class="version textButton">
+          <i class="fas fa-fw fa-code-branch"></i>
+          <div class="text">version</div>
+        </div>
+        <key id="newVersionIndicator" class="hidden">new</key>
+      </div>
       <!-- <div>
         <i class="fas fa-file"></i>
         Terms & Conditions

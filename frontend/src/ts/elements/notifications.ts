@@ -1,5 +1,8 @@
 import { debounce } from "throttle-debounce";
 import * as Misc from "../utils/misc";
+import * as BannerEvent from "../observables/banner-event";
+// import * as Alerts from "./alerts";
+import * as NotificationEvent from "../observables/notification-event";
 
 function updateMargin(): void {
   console.log("updating margin");
@@ -141,7 +144,7 @@ class Notification {
     } else if (this.type === "banner") {
       let leftside = `<div class="icon lefticon">${icon}</div>`;
 
-      if (/^images\/.*/.test(this.customIcon as string)) {
+      if (/images\/.*/.test(this.customIcon as string)) {
         leftside = `<div class="image" style="background-image: url(${this.customIcon})"></div>`;
       }
 
@@ -165,6 +168,7 @@ class Notification {
       </div>
       `);
       updateMargin();
+      BannerEvent.dispatch();
       if (this.duration >= 0) {
         $(`#bannerCenter .banner[id='${this.id}'] .closeButton`).on(
           "click",
@@ -173,6 +177,15 @@ class Notification {
             this.closeCallback();
           }
         );
+      }
+      // NOTE: This need to be changed if the update banner text is changed
+      if (this.message.includes("please refresh")) {
+        // add pointer when refresh is needed
+        $(`#bannerCenter .banner[id='${this.id}']`).css("cursor", "pointer");
+        // refresh on clicking banner
+        $(`#bannerCenter .banner[id='${this.id}']`).on("click", () => {
+          window.location.reload();
+        });
       }
     }
     if (this.duration > 0) {
@@ -213,6 +226,7 @@ class Notification {
           () => {
             $(`#bannerCenter .banner[id='${this.id}']`).remove();
             updateMargin();
+            BannerEvent.dispatch();
           }
         );
     }
@@ -228,7 +242,8 @@ export function add(
   closeCallback?: () => void,
   allowHTML?: boolean
 ): void {
-  // notificationHistory.push(
+  NotificationEvent.dispatch(message, level, customTitle);
+
   new Notification(
     "notification",
     message,
@@ -239,7 +254,6 @@ export function add(
     closeCallback,
     allowHTML
   ).show();
-  // );
 }
 
 export function addBanner(
@@ -249,9 +263,8 @@ export function addBanner(
   sticky = false,
   closeCallback?: () => void,
   allowHTML?: boolean
-): void {
-  // notificationHistory.push(
-  new Notification(
+): number {
+  const banner = new Notification(
     "banner",
     message,
     level,
@@ -260,8 +273,9 @@ export function addBanner(
     customIcon,
     closeCallback,
     allowHTML
-  ).show();
-  // );
+  );
+  banner.show();
+  return banner.id;
 }
 
 const debouncedMarginUpdate = debounce(100, updateMargin);

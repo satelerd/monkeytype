@@ -1,17 +1,23 @@
-@import url("https://fonts.googleapis.com/css2?family=Fira+Code&family=IBM+Plex+Sans:wght@600&family=Inconsolata&family=Roboto+Mono&family=Source+Code+Pro&family=JetBrains+Mono&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Montserrat&family=Roboto&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Titillium+Web&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Lexend+Deca&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Oxygen&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Nunito&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Itim&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Comfortaa&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Coming+Soon&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Lato&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Lalezar&display=swap");
-@import url("https://fonts.googleapis.com/css?family=Noto+Naskh+Arabic&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Vazirmatn&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inconsolata:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Lexend+Deca:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Oxygen:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Itim:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Coming+Soon:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Lalezar:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;700&display=swap");
 
 @font-face {
   font-family: "Boon";
@@ -22,17 +28,49 @@
     url("../webfonts/Boon-400.otf") format("opentype");
 }
 
+@font-face {
+  font-family: "Open Dyslexic";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("../webfonts/OpenDyslexic.otf") format("opentype");
+}
+
 :root {
   --roundness: 0.5rem;
   --font: "Roboto Mono", "Vazirmatn";
   // scroll-behavior: smooth;
   scroll-padding-top: 2rem;
+  font-weight: 400;
 }
 
 ::placeholder {
   color: var(--sub-color);
   opacity: 1;
   /* Firefox */
+}
+
+::selection {
+  background-color: var(--main-color);
+  color: var(--sub-alt-color);
+}
+
+#app {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1000px) auto;
+  justify-items: center;
+  &.wide125 {
+    grid-template-columns: auto minmax(0, 1250px) auto;
+  }
+  &.wide150 {
+    grid-template-columns: auto minmax(0, 1500px) auto;
+  }
+  &.wide200 {
+    grid-template-columns: auto minmax(0, 2000px) auto;
+  }
+  &.widemax {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
 }
 
 #nocss {
@@ -59,7 +97,7 @@ a {
   }
 }
 
-a[data-link] * {
+a[router-link] * {
   pointer-events: none;
 }
 
@@ -183,8 +221,9 @@ key {
 }
 
 .pageLoading {
+  height: 100%;
   display: grid;
-  justify-content: center;
+  align-items: center;
 }
 
 .pageLoading,
@@ -267,7 +306,7 @@ key {
   color: var(--text-color);
   cursor: pointer;
   transition: background 0.125s, color 0.125s;
-  padding: 0.5rem;
+  padding: 0.5em;
   border-radius: var(--roundness);
   background: var(--sub-alt-color);
   text-align: center;
@@ -276,11 +315,11 @@ key {
   align-content: center;
   height: min-content;
   height: -moz-min-content;
-  line-height: 1.25rem;
+  line-height: 1.25em;
   appearance: none;
   border: none;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 1em;
 
   &.active {
     background: var(--main-color);
@@ -326,7 +365,7 @@ key {
   color: var(--sub-color);
   cursor: pointer;
   transition: background 0.125s, color 0.125s;
-  padding: 0.5rem;
+  padding: 0.5em;
   border-radius: var(--roundness);
   text-align: center;
   user-select: none;
@@ -334,16 +373,16 @@ key {
   align-content: center;
   height: min-content;
   height: -moz-min-content;
-  line-height: 1.25rem;
+  line-height: 1.25em;
   appearance: none;
   border: none;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 1em;
   width: max-content;
   width: -moz-max-content;
   display: grid;
   grid-auto-flow: column;
-  gap: 0.25rem;
+  gap: 0.25em;
   text-decoration: none;
 
   .fas,
@@ -415,15 +454,15 @@ key {
   }
   position: relative;
   .statusIndicator {
-    width: 2.25rem;
-    height: 2.25rem;
+    width: 2.25em;
+    height: 2.25em;
     position: absolute;
     right: 0;
     top: 0;
     /* background: red; */
     display: grid;
-    grid-template-columns: 2.25rem;
-    grid-template-rows: 2.25rem;
+    grid-template-columns: 2.25em;
+    grid-template-rows: 2.25em;
     place-items: center center;
     cursor: pointer;
 
@@ -445,13 +484,15 @@ key {
 
 .configureAPI.button {
   position: fixed;
-  left: 2rem;
-  bottom: 2rem;
+  left: 0;
+  top: 10rem;
   display: grid;
   grid-auto-flow: column;
   gap: 0.5rem;
   text-decoration: none;
   z-index: 999999999;
+  border-radius: 0 1rem 1rem 0;
+  padding: 1rem;
 }
 
 .avatar {
@@ -486,4 +527,19 @@ key {
     margin-bottom: 0.15rem;
     margin-right: 0.3rem;
   }
+}
+
+.notificationBubble {
+  position: absolute;
+  background: var(--main-color);
+  width: 1em;
+  height: 1em;
+  font-size: 0.5em;
+  line-height: 2em;
+  color: transparent;
+  border-radius: 100rem;
+  right: 0.5em;
+  top: 0.5em;
+  box-shadow: 0 0 0 0.5em var(--bg-color);
+  transition: 0.125s;
 }

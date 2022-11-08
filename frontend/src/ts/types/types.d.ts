@@ -38,8 +38,6 @@ declare namespace MonkeyTypes {
 
   type QuoteLength = -3 | -2 | -1 | 0 | 1 | 2 | 3;
 
-  type FontSize = "1" | "125" | "15" | "2" | "3" | "4";
-
   type CaretStyle =
     | "off"
     | "default"
@@ -72,6 +70,8 @@ declare namespace MonkeyTypes {
 
   type KeymapLegendStyle = "lowercase" | "uppercase" | "blank" | "dynamic";
 
+  type KeymapShowTopRow = "always" | "layout" | "never";
+
   type ShowAverage = "off" | "wpm" | "acc" | "both";
 
   type TapeMode = "off" | "letter" | "word";
@@ -87,12 +87,28 @@ declare namespace MonkeyTypes {
     5 = typewriter
     6 = osu
     7 = hitmarker
+    8 = sine
+    9 = sawtooth
+    10 = square
+    11 = triangle
   */
-  type PlaySoundOnClick = "off" | "1" | "2" | "3" | "4" | "5" | "6" | "7";
+  type PlaySoundOnClick =
+    | "off"
+    | "1"
+    | "2"
+    | "3"
+    | "4"
+    | "5"
+    | "6"
+    | "7"
+    | "8"
+    | "9"
+    | "10"
+    | "11";
 
   type SoundVolume = "0.1" | "0.5" | "1.0";
 
-  type PaceCaret = "off" | "average" | "pb" | "last" | "custom";
+  type PaceCaret = "off" | "average" | "pb" | "last" | "custom" | "daily";
 
   type PageWidth = "100" | "125" | "150" | "200" | "max";
 
@@ -102,7 +118,7 @@ declare namespace MonkeyTypes {
 
   type HighlightMode = "off" | "letter" | "word";
 
-  type EnableAds = "off" | "on" | "max";
+  type Ads = "off" | "result" | "on" | "sellout";
 
   type MinimumAccuracy = "off" | "custom";
 
@@ -147,6 +163,7 @@ declare namespace MonkeyTypes {
     timestamp: number;
     difficulty: string;
     raw: number;
+    isPb: boolean;
   }
 
   interface AccChartData {
@@ -159,6 +176,11 @@ declare namespace MonkeyTypes {
     x: number;
     y: number;
     amount?: number;
+  }
+
+  interface FontObject {
+    name: string;
+    display?: string;
   }
 
   interface FunboxObject {
@@ -251,6 +273,11 @@ declare namespace MonkeyTypes {
     sd: number;
   }
 
+  interface IncompleteTest {
+    acc: number;
+    seconds: number;
+  }
+
   interface Result<M extends Mode> {
     _id: string;
     wpm: number;
@@ -265,6 +292,7 @@ declare namespace MonkeyTypes {
     timestamp: number;
     restartCount: number;
     incompleteTestSeconds: number;
+    incompleteTests: IncompleteTest[];
     testDuration: number;
     afkDuration: number;
     tags: string[];
@@ -318,7 +346,7 @@ declare namespace MonkeyTypes {
     mode: Mode;
     quoteLength: QuoteLength[];
     language: string;
-    fontSize: FontSize;
+    fontSize: number;
     freedomMode: boolean;
     resultFilters?: ResultFilters | null;
     difficulty: Difficulty;
@@ -342,6 +370,7 @@ declare namespace MonkeyTypes {
     keymapStyle: KeymapStyle;
     keymapLegendStyle: KeymapLegendStyle;
     keymapLayout: string;
+    keymapShowTopRow: KeymapShowTopRow;
     fontFamily: string;
     smoothLineScroll: boolean;
     alwaysShowDecimalPlaces: boolean;
@@ -363,7 +392,7 @@ declare namespace MonkeyTypes {
     minWpmCustomSpeed: number;
     highlightMode: HighlightMode;
     alwaysShowCPM: boolean;
-    enableAds: EnableAds;
+    ads: Ads;
     hideExtraLetters: boolean;
     strictSpace: boolean;
     minAcc: MinimumAccuracy;
@@ -470,6 +499,10 @@ declare namespace MonkeyTypes {
     inventory?: UserInventory;
     addedAt: number;
     filterPresets: ResultFilters[];
+    xp: number;
+    inboxUnreadSize: number;
+    streak: number;
+    maxStreak: number;
   }
 
   interface UserDetails {
@@ -501,6 +534,10 @@ declare namespace MonkeyTypes {
   interface ResultFilters {
     _id: string;
     name: string;
+    pb: {
+      no: boolean;
+      yes: boolean;
+    };
     difficulty: {
       normal: boolean;
       expert: boolean;
@@ -572,7 +609,7 @@ declare namespace MonkeyTypes {
   }
 
   interface Global {
-    snapshot(): Snapshot;
+    snapshot(): Snapshot | undefined;
     config: Config;
     toggleFilterDebug(): void;
     glarsesMode(): void;
@@ -583,6 +620,8 @@ declare namespace MonkeyTypes {
     toggleUnsmoothedRaw(): void;
     enableSpacingDebug(): void;
     noGoogleNoMo(): void;
+    egVideoListener(options: Record<string, string>): void;
+    wpmCalculationDebug(): void;
   }
 
   interface GithubRelease {
@@ -633,7 +672,7 @@ declare namespace MonkeyTypes {
   interface Command {
     id: string;
     display: string;
-    subgroup?: CommandsGroup | boolean;
+    subgroup?: CommandsSubgroup;
     found?: boolean;
     icon?: string;
     noIcon?: boolean;
@@ -641,7 +680,7 @@ declare namespace MonkeyTypes {
     alias?: string;
     input?: boolean;
     visible?: boolean;
-    defaultValue?: string;
+    defaultValue?: () => string;
     configValue?: string | number | boolean | number[];
     configValueMode?: string;
     exec?: (input?: string) => void;
@@ -651,10 +690,16 @@ declare namespace MonkeyTypes {
     shouldFocusTestUI?: boolean;
   }
 
-  interface CommandsGroup {
+  interface CommandsSubgroup {
     title: string;
     configKey?: keyof Config;
     list: Command[];
+  }
+
+  interface Theme {
+    name: string;
+    bgColor: string;
+    mainColor: string;
   }
 
   interface Quote {
@@ -733,4 +778,30 @@ declare namespace MonkeyTypes {
     color?: string;
     customStyle?: string;
   }
+
+  interface MonkeyMail {
+    id: string;
+    subject: string;
+    body: string;
+    timestamp: number;
+    read: boolean;
+    rewards: AllRewards[];
+  }
+
+  interface Reward<T> {
+    type: string;
+    item: T;
+  }
+
+  interface XpReward extends Reward<number> {
+    type: "xp";
+    item: number;
+  }
+
+  interface BadgeReward extends Reward<Badge> {
+    type: "badge";
+    item: Badge;
+  }
+
+  type AllRewards = XpReward | BadgeReward;
 }
